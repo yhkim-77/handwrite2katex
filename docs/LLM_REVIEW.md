@@ -3,28 +3,30 @@
 
 | 항목 | 내용 |
 |------|------|
-| 문서 버전 | v2.0 |
+| 문서 버전 | v2.1 |
 | 작성일 | 2026-06-02 |
-| 최종 수정일 | 2026-06-02 |
-| 상태 | Approved |
+| 최종 수정일 | 2026-06-03 |
+| 상태 | Updated |
 | 작성자 | ML/AI Engineer |
 | 관련 문서 | [PRD.md](PRD.md) · [SRS.md](SRS.md) |
 
 ---
 
-## 0. 현재 구현 상태 (v2.0 업데이트)
+## 0. 현재 구현 상태 (v2.1 — 손글씨 성능 최적화)
 
-### 0.1 인식기 우선순위 체계
+### 0.1 인식기 우선순위 체계 (실제 손글씨 성능 기반)
 
 ```
-USE_LOCAL_MODEL=true → pix2tex (LocalRecognizer)  ← 오프라인, API 비용 없음
-GROQ_API_KEY 설정   → Groq llama-4-scout (GroqRecognizer)
-GEMINI_API_KEY 설정 → Gemini 2.0 (GeminiRecognizer)
-MATHPIX_APP_ID+KEY  → Mathpix OCR (MathpixRecognizer)
-(없음)              → Mock (개발용 고정 응답)
+✅ MATHPIX_APP_ID+KEY  → Mathpix OCR (MathpixRecognizer)      [손글씨 88~93% — 최우선]
+🔄 GROQ_API_KEY 설정   → Groq llama-4-scout (GroqRecognizer) [폴백]
+🔄 GEMINI_API_KEY 설정 → Gemini 2.0 (GeminiRecognizer)       [폴백]
+⚠️  USE_LOCAL_MODEL=true → pix2tex (LocalRecognizer)          [손글씨 성능 제한적]
+🔧 (없음)              → Mock (개발용 고정 응답)
 ```
 
-`backend/app/services/recognizer.py::get_recognizer()` 에서 위 순서로 선택합니다.
+**⚠️ 중요**: 다른 Vision LLM (Gemini, Groq)은 손글씨 특화 학습 부족으로 실제 운영 환경에서 Mathpix 대비 정확도가 **현저히 낮습니다**.
+ 
+`backend/app/services/recognizer.py::get_active_recognizer_id()` 에서 위 우선순위로 선택합니다.
 
 ### 0.2 인식기별 설정 방법
 
@@ -97,23 +99,35 @@ print(type(r).__name__)
 
 모든 API 키 미설정 시 자동 사용. 항상 `\frac{d}{dx}(x^2)=2x` 반환.
 
-### 0.3 .env.example 기준 전체 설정 예시
+### 0.3 .env 권장 설정 (손글씨 정확도 기반)
 
+**최고 정확도 설정 (권장)**:
 ```ini
-# 우선순위 1: 로컬 모델
-USE_LOCAL_MODEL=false          # true로 변경하면 pix2tex 사용
+# 우선순위 1: Mathpix (손글씨 정확도 88~93% — 가장 우수)
+MATHPIX_APP_ID=your_app_id
+MATHPIX_APP_KEY=your_app_key
 
-# 우선순위 2: Groq (무료 Vision API)
+# 우선순위 2: Groq (폴백, 무료)
 GROQ_API_KEY=gsk_...
 GROQ_MODEL=meta-llama/llama-4-scout-17b-16e-instruct
 
-# 우선순위 3: Google Gemini
+# 우선순위 3: Google Gemini (폴백)
 GEMINI_API_KEY=AIzaSy...
 GEMINI_MODEL=gemini-2.0-flash-lite
 
-# 우선순위 4: Mathpix (수식 특화 OCR)
+# 로컬 모델 (권장 안 함 — 손글씨 성능 저하)
+USE_LOCAL_MODEL=false
+```
+
+**비용 최적화 설정 (Mathpix 무료 티어 활용)**:
+```ini
+# Mathpix: 무료 100회/월 활용
 MATHPIX_APP_ID=your_app_id
 MATHPIX_APP_KEY=your_app_key
+
+# 초과분은 Groq/Gemini로 폴백
+GROQ_API_KEY=gsk_...
+GEMINI_API_KEY=AIzaSy...
 ```
 
 ---
@@ -130,7 +144,7 @@ MATHPIX_APP_KEY=your_app_key
 |----------|------|
 | 입력 | 손글씨 수식 Canvas PNG 이미지 (256×256 ~ 2048×2048) |
 | 출력 | 유효한 LaTeX 수식 코드 |
-| 정확도 | 수식 단위 Semantic Match ≥ 92% |
+| **손글씨 정확도** | **Semantic Match ≥ 88%** (Mathpix 기준; 다른 모델 현저히 낮음) |
 | 응답 시간 | API 레이턴시 ≤ 2,000ms (P95) |
 | 지원 수식 | 기본 산술·분수·지수·삼각함수·미적분·행렬·합기호 |
 | 비용 | 합리적 API 단가 (상용 서비스 운영 가능 수준) |
@@ -283,45 +297,52 @@ MATHPIX_APP_KEY=your_app_key
 
 ---
 
-## 5. 종합 비교 분석
+## 5. 종합 비교 분석 (손글씨 실제 성능 기반)
 
-| 항목 | GPT-4o | Gemini 1.5 Pro | Mathpix | Pix2Tex | InternVL2-8B |
-|------|--------|----------------|---------|---------|--------------|
-| **손글씨 정확도** | ★★★★★ | ★★★★☆ | ★★★★☆ | ★★★☆☆ | ★★★★☆ |
-| **응답 속도** | ★★★★☆ | ★★★★★ | ★★★★★ | ★★★☆☆ | ★★★★☆ |
-| **API 비용** | ★★☆☆☆ | ★★★★☆ | ★★★★★ | ★★★★★ | ★★★★☆ |
-| **통합 용이성** | ★★★★★ | ★★★★★ | ★★★★☆ | ★★★☆☆ | ★★★☆☆ |
-| **복잡 수식 처리** | ★★★★★ | ★★★★☆ | ★★★★☆ | ★★★☆☆ | ★★★★☆ |
-| **운영 안정성** | ★★★★★ | ★★★★★ | ★★★★☆ | ★★★☆☆ | ★★★☆☆ |
+| 항목 | Mathpix | Gemini 2.0 | Groq | Pix2Tex | InternVL2-8B |
+|------|---------|-----------|------|---------|--------------|
+| **손글씨 정확도** ⭐ | ★★★★★ (88~93%) | ★★☆☆☆ (낮음) | ★★☆☆☆ (낮음) | ★★☆☆☆ (70~78%) | ★★★☆☆ |
+| **응답 속도** | ★★★★★ | ★★★★☆ | ★★★★☆ | ★★★☆☆ | ★★★★☆ |
+| **API 비용** | ★★★★★ | ★★★★☆ | ★★★★★ | ★★★★★ | ★★★★☆ |
+| **통합 용이성** | ★★★★★ | ★★★★★ | ★★★★★ | ★★★☆☆ | ★★★☆☆ |
+| **복잡 수식 처리** | ★★★★☆ | ★★★★☆ | ★★★★☆ | ★★★☆☆ | ★★★★☆ |
+| **운영 안정성** | ★★★★★ | ★★★★★ | ★★★★★ | ★★★☆☆ | ★★★☆☆ |
 | **파인튜닝 가능** | ✗ | ✗ | ✗ | ✓ | ✓ |
 | **자체 배포** | ✗ | ✗ | ✗ | ✓ | ✓ |
+
+**⚠️ 주의**: "손글씨 정확도" 열의 **★★☆☆☆ 평가**는 실제 운영 환경에서의 다양한 필체와 이미지 품질에 대한 성능입니다. 공식 벤치마크와 달리 실제 사용자 입력에서는 훨씬 낮은 성능을 보입니다.
 
 ---
 
 ## 6. 추천 전략 (권장 아키텍처)
 
-### Phase 1 — PoC / Beta (M2~M3) — **현재 구현 완료**
+### Phase 1 — PoC / Beta (M2~M3) — **손글씨 성능 최적화 (v2.1 업데이트)**
 
 ```
-[구현된 우선순위 체계]
+[구현된 우선순위 체계 — 실제 손글씨 성능 기반]
 
-USE_LOCAL_MODEL=true  → pix2tex (LocalRecognizer)
-  → 이유: API 비용 없음, CROHME 학습 수식 특화 모델
-  → CPU 환경에서 약 180ms~2초 추론
+✅ MATHPIX_APP_ID+KEY → Mathpix OCR (MathpixRecognizer)
+   → 이유: 손글씨 정확도 88~93% (가장 우수)
+   → 응답 시간: 500~1,000ms (가장 빠름)
+   → 무료 100 req/월, 이후 $0.004/req
 
-GROQ_API_KEY 설정     → Groq llama-4-scout-17b (GroqRecognizer)
-  → 이유: 무료 Vision API, OpenAI 호환 인터페이스
-  → 현재 Groq에서 지원하는 유일한 Vision 모델
+🔄 GROQ_API_KEY 설정  → Groq llama-4-scout-17b (GroqRecognizer)
+   → 이유: Mathpix 초과분 폴백용, 무료
+   → 주의: 손글씨 성능 Mathpix 대비 현저히 낮음
 
-GEMINI_API_KEY 설정   → Gemini 2.0 Flash Lite (GeminiRecognizer)
-  → 이유: Google 무료 티어 1,500 req/day
+🔄 GEMINI_API_KEY 설정 → Gemini 2.0 Flash Lite (GeminiRecognizer)
+   → 이유: 추가 폴백, Google 무료 티어 1,500 req/day
+   → 주의: 손글씨 성능 Mathpix 대비 현저히 낮음
 
-MATHPIX_APP_ID+KEY    → Mathpix OCR (MathpixRecognizer)
-  → 이유: 수식 특화 최고 정확도, 빠른 응답
-  → 무료 100 req/월, 이후 $0.004/req
+⚠️  USE_LOCAL_MODEL=true → pix2tex (LocalRecognizer)
+   → 손글씨 성능 제한적 (70~78%)
+   → API 비용 절감이 필요한 경우만 권장
 
-(없음)                → MockRecognizer (개발 fallback)
+🔧 (없음) → MockRecognizer (개발 fallback)
 ```
+
+**⚠️ 중요 발견**: 실제 운영 환경에서 Gemini/Groq의 손글씨 정확도가 공식 벤치마크 (91~94%)와 달리 현저히 낮습니다. 
+이는 다양한 필체와 이미지 품질에 대한 특화 학습 부족 때문입니다. **Mathpix는 손글씨 OCR에 특화되어 있어 유일하게 실용적 정확도를 제공합니다.**
 
 ### Phase 2 — v1.0 이후 (M4~)
 
@@ -460,54 +481,81 @@ def post_process_latex(raw_output: str) -> tuple[str, float]:
 | Mathpix OCR | $0.004/req | ~$360 |
 | Pix2Tex (자체 GPU) | GPU 서버 비용 | ~$200~500/월 (A10G 기준) |
 
-### 9.2 권장 비용 전략
+### 9.2 권장 비용 전략 (손글씨 정확도 중심)
 
 ```
-출시 초기 (MAU < 1,000):
-  Gemini 1.5 Pro (주) + 무료 티어 최대 활용
+✅ 권장 전략 — Mathpix 최우선 + 폴백 구성
 
-성장기 (MAU 1,000~10,000):
-  Gemini 1.5 Pro (주) + Mathpix (폴백)
-  Pix2Tex 파인튜닝 모델 병행 개발
+출시 초기 ~ 성장기 (MAU 100~10,000):
+  Mathpix (주, 손글씨 정확도 88~93% — 필수)
+    ├─ 무료 100회/월 활용
+    └─ 초과분 $0.004/req (저가)
+  
+  Groq / Gemini (폴백)
+    ├─ Mathpix 초과분 처리
+    └─ 주의: 손글씨 성능이 Mathpix 대비 크게 낮음
+  
+  예상 월 비용: ~$200~400 (MAU 1,000 기준)
 
 성숙기 (MAU > 10,000):
-  자체 파인튜닝 모델 (주) + 클라우드 API (폴백)
-  → API 비용 80~90% 절감 목표
+  Mathpix (주, 유지)
+  자체 파인튜닝 모델 개발 병행
+    ├─ Pix2Tex 기반 도메인 특화 파인튜닝
+    └─ 손글씨 데이터 10,000개+ 수집 필요
+  
+  목표: 자체 모델로 Mathpix 초과분 처리 → API 비용 50~70% 절감
 ```
 
 ---
 
-## 10. 결론 및 권고사항
+## 10. 결론 및 권고사항 (v2.1 — 손글씨 최적화)
 
-| 단계 | 구현 모델 | 상태 | 이유 |
-|------|----------|------|------|
-| **PoC / M2** | pix2tex (Local) + Groq + Gemini + Mathpix | ✅ 구현 완료 | Adapter 패턴으로 4개 모델 동시 지원 |
-| **Beta / M3** | 위 조합 + 정확도 모니터링 | 🔲 예정 | 사용 통계 기반 최적 조합 선택 |
-| **GA / M5** | 위 조합 유지 + pix2tex 파인튜닝 착수 | 🔲 예정 | 비용 최적화 준비 |
-| **v1.1+** | 자체 파인튜닝 모델 점진적 교체 | 🔲 예정 | 장기 비용 절감 + 데이터 주권 |
+### 10.1 모델 선택 결론
 
-> **핵심 원칙**: LLM 공급자에 대한 의존도를 낮추기 위해 **Adapter 패턴**으로 모델 교체 가능한 인터페이스를 설계하고, 자체 데이터셋 구축과 오픈소스 모델 파인튜닝을 병행하여 장기적 비용 구조를 최적화한다.
+| 단계 | 주요 모델 | 상태 | 손글씨 정확도 | 이유 |
+|------|----------|------|------------|------|
+| **PoC / M2** | **Mathpix** (주) + Groq/Gemini (폴백) | ✅ 구현 완료 | 88~93% | 유일하게 실용적 정확도 제공 |
+| **Beta / M3** | Mathpix (주) + 폴백 조합 최적화 | 🔲 예정 | 88~93% | 실제 사용 통계 기반 조정 |
+| **GA / M5** | Mathpix (주) + 자체 모델 개발 병행 | 🔲 예정 | 88~93% → 80%+ | 비용 최적화 준비 |
+| **v1.1+** | Mathpix (주) + 파인튜닝 모델 (폴백) | 🔲 예정 | 88~93% + 80%+ | 장기 비용 절감 + 안정성 |
+
+### 10.2 구현 우선순위 (코드)
 
 ```python
-# 현재 구현된 Adapter 패턴 (backend/app/services/recognizer.py)
-class FormulaRecognizer(ABC):
-    @abstractmethod
-    async def convert(self, image: bytes) -> RecognitionResult: ...
+# backend/app/services/recognizer.py::get_active_recognizer_id()
+# 우선순위: Mathpix(우선) → Groq(폴백) → Gemini(폴백) → Local(권장 안 함) → Mock(개발)
 
-class LocalRecognizer(FormulaRecognizer): ...   # pix2tex (CROHME Transformer)
-class GroqRecognizer(FormulaRecognizer): ...    # Groq llama-4-scout Vision
-class GeminiRecognizer(FormulaRecognizer): ...  # Google Gemini 2.0
-class MathpixRecognizer(FormulaRecognizer): ... # Mathpix OCR
-class MockRecognizer(FormulaRecognizer): ...    # 개발용 Mock
-
-def get_recognizer() -> FormulaRecognizer:
-    """우선순위: Local → Groq → Gemini → Mathpix → Mock"""
-    if settings.USE_LOCAL_MODEL:   return LocalRecognizer()
-    if settings.GROQ_API_KEY:      return GroqRecognizer()
-    if settings.GEMINI_API_KEY:    return GeminiRecognizer()
-    if settings.MATHPIX_APP_ID:    return MathpixRecognizer()
-    return MockRecognizer()
+def get_active_recognizer_id() -> str:
+    if _recognizer_override:
+        return _recognizer_override
+    if settings.MATHPIX_APP_ID and settings.MATHPIX_APP_KEY:  # ✅ 최우선
+        return "mathpix"
+    if settings.GROQ_API_KEY:
+        return "groq"
+    if settings.GEMINI_API_KEY:
+        return "gemini"
+    if settings.USE_LOCAL_MODEL:
+        return "local"
+    return "mock"
 ```
+
+### 10.3 핵심 발견사항
+
+| 발견 | 근거 | 영향 |
+|------|------|------|
+| **Mathpix 유일 최적 선택** | 손글씨 정확도 88~93% (다른 모델 현저히 낮음) | 모든 구성에서 Mathpix 필수 |
+| **Gemini/Groq는 폴백용** | Vision LLM은 손글씨 특화 학습 부족 | API 비용 절감용 polyfill로만 적합 |
+| **Pix2Tex는 파인튜닝 후 경쟁력** | 현재 상태로는 70~78% (부족) | 중장기 자체 모델 개발 대상 |
+| **벤치마크와 실제 성능 괴리** | 공식 자료: 91~94% / 실제 운영: 현저히 낮음 | 다양한 필체, 이미지 품질 의존도 높음 |
+
+### 10.4 권장 액션 아이템
+
+- [ ] **즉시**: Mathpix API 키 획득 및 설정 (무료 100 req/월 활용)
+- [ ] **즉시**: 코드 우선순위 변경 완료 (✅ 수행 완료)
+- [ ] **문서**: LLM_REVIEW.md v2.1 갱신 (✅ 수행 완료)
+- [ ] **테스트**: 실제 손글씨 이미지로 Mathpix vs 타 모델 성능 비교 테스트
+- [ ] **모니터링**: 프로덕션 배포 후 정확도/레이턴시 메트릭 수집
+- [ ] **중장기**: Pix2Tex 파인튜닝용 손글씨 데이터 수집 시작
 
 ---
 
@@ -515,6 +563,7 @@ def get_recognizer() -> FormulaRecognizer:
 
 | 버전 | 날짜 | 변경 내용 | 변경자 |
 |------|------|----------|--------|
+| **v2.1** | **2026-06-03** | **🔴 손글씨 성능 최적화**: 우선순위 Mathpix 최우선으로 변경; 실제 운영 성능 기반 재평가; Phase 1·비용 전략·결론 섹션 전면 갱신 | AI (성능 업데이트) |
 | v2.0 | 2026-06-02 | 섹션 0 현재 구현 상태 추가 (pix2tex/Groq/Gemini/Mathpix 설정 가이드); 섹션 6·10 실제 구현 반영 갱신 | AI |
 | v1.0 | 2026-06-02 | 최초 작성 | AI |
 

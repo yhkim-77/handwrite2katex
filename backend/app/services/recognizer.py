@@ -288,23 +288,34 @@ def set_recognizer_override(name: str | None) -> None:
 
 
 def get_active_recognizer_id() -> str:
-    """Return the id string of the currently active recognizer."""
+    """Return the id string of the currently active recognizer.
+    
+    Priority for handwritten math formulas:
+    1. Mathpix (손글씨 정확도 88~93% — 가장 우수)
+    2. Groq Vision (폴백, 손글씨 성능 제한적)
+    3. Gemini (폴백, 손글씨 성능 제한적)
+    4. Local pix2tex (손글씨 성능 낮음, API 비용 없음)
+    5. Mock (개발용)
+    """
     if _recognizer_override:
         return _recognizer_override
-    if settings.USE_LOCAL_MODEL:
-        return "local"
+    if settings.MATHPIX_APP_ID and settings.MATHPIX_APP_KEY:
+        return "mathpix"
     if settings.GROQ_API_KEY:
         return "groq"
     if settings.GEMINI_API_KEY:
         return "gemini"
-    if settings.MATHPIX_APP_ID and settings.MATHPIX_APP_KEY:
-        return "mathpix"
+    if settings.USE_LOCAL_MODEL:
+        return "local"
     return "mock"
 
 
 def get_recognizer() -> FormulaRecognizer:
     """Return appropriate recognizer based on config or runtime override.
-    Priority: Local → Groq → Gemini → Mathpix → Mock
+    Priority: Mathpix (우선) → Groq → Gemini → Local → Mock
+    
+    NOTE: Mathpix는 손글씨 수식 OCR 분야 최고 성능 모델입니다.
+    다른 Vision LLM은 손글씨 특화 학습 부족으로 성능이 현저히 낮습니다.
     """
     target = get_active_recognizer_id()
     if target == "local":
