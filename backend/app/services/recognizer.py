@@ -5,13 +5,16 @@ Swap provider by changing settings.GEMINI_API_KEY / provider selection.
 """
 from __future__ import annotations
 
+import asyncio
 import base64
+import io
 import re
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 import httpx
+from PIL import Image
 
 from app.core.config import settings
 
@@ -200,6 +203,53 @@ class GroqRecognizer(FormulaRecognizer):
         )
 
 
+class LocalRecognizer(FormulaRecognizer):
+    """pix2tex local model — CROHME + rendered formula dataset, runs on CPU."""
+
+    _model = None
+    _lock: asyncio.Lock | None = None
+
+    @classmethod
+    def _get_lock(cls) -> asyncio.Lock:
+        if cls._lock is None:
+            cls._lock = asyncio.Lock()
+        return cls._lock
+
+    @staticmethod
+    def _init_model():
+        from pix2tex.cli import LatexOCR  # noqa: PLC0415
+        return LatexOCR()
+
+    @classmethod
+    async def preload(cls) -> None:
+        """Call at app startup to avoid cold-start delay on first request."""
+        await cls._ensure_loaded()
+
+    @classmethod
+    async def _ensure_loaded(cls) -> None:
+        if cls._model is not None:
+            return
+        async with cls._get_lock():
+            if cls._model is None:
+                loop = asyncio.get_event_loop()
+                cls._model = await loop.run_in_executor(None, cls._init_model)
+
+    async def convert(self, image_bytes: bytes) -> RecognitionResult:
+        await self._ensure_loaded()
+        start = time.monotonic()
+        img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        loop = asyncio.get_event_loop()
+        raw = await loop.run_in_executor(None, self._model, img)
+        latex, confidence = _post_process(raw)
+        elapsed = int((time.monotonic() - start) * 1000)
+        return RecognitionResult(
+            latex=latex,
+            confidence=confidence,
+            model="pix2tex/local",
+            processing_time_ms=elapsed,
+        )
+
+
 class MockRecognizer(FormulaRecognizer):
     """Development mock — returns a sample LaTeX without calling any API."""
 
@@ -228,12 +278,15 @@ def _post_process(raw: str) -> tuple[str, float]:
 
 
 def get_recognizer() -> FormulaRecognizer:
-    """Return appropriate recognizer based on config."""
+    """Return appropriate recognizer based on config.
+    Priority: Local → Groq → Gemini → Mathpix → Mock
+    """
+    if settings.USE_LOCAL_MODEL:
+        return LocalRecognizer()
     if settings.GROQ_API_KEY:
         return GroqRecognizer()
     if settings.GEMINI_API_KEY:
         return GeminiRecognizer()
     if settings.MATHPIX_APP_ID and settings.MATHPIX_APP_KEY:
         return MathpixRecognizer()
-    # Development fallback
     return MockRecognizer()

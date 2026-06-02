@@ -48,6 +48,7 @@ services:
     volumes:
       - ./backend:/app
       - storage_data:/tmp/h2k_storage
+      - hf_cache:/root/.cache/huggingface
     ports:
       - "8000:8000"
     depends_on:
@@ -83,3 +84,4 @@ volumes:
   db_data:
   storage_data:
   node_modules:
+  hf_cache:

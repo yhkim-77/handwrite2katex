@@ -12,13 +12,15 @@ from app.api import api_router
 from app.core.config import settings
 from app.core.database import engine
 from app.models import User, FormulaHistory  # ensure models are imported for Alembic
+from app.services.recognizer import LocalRecognizer
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    # Create local storage dir if needed
     if settings.STORAGE_BACKEND == "local":
         os.makedirs(settings.LOCAL_STORAGE_PATH, exist_ok=True)
+    if settings.USE_LOCAL_MODEL:
+        await LocalRecognizer.preload()
     yield
     await engine.dispose()
 

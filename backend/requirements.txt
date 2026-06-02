@@ -29,6 +29,9 @@ httpx==0.27.0
 Pillow==10.3.0
 numpy==1.26.4
 
+# Local CROHME+Transformer model (pix2tex / LaTeX-OCR)
+pix2tex[cli]==0.1.2
+
 # AWS S3 / MinIO
 boto3==1.34.106
 

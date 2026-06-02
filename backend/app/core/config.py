@@ -72,6 +72,9 @@ class Settings(BaseSettings):
     # Network
     SSL_VERIFY: bool = True
 
+    # Local model
+    USE_LOCAL_MODEL: bool = False
+
     @property
     def max_image_bytes(self) -> int:
         return self.MAX_IMAGE_SIZE_MB * 1024 * 1024
