@@ -278,16 +278,41 @@ def _post_process(raw: str) -> tuple[str, float]:
     return latex.strip(), 0.92
 
 
+# Runtime override — set via PATCH /api/v1/settings/recognizer (resets on restart)
+_recognizer_override: str | None = None
+
+
+def set_recognizer_override(name: str | None) -> None:
+    global _recognizer_override
+    _recognizer_override = name
+
+
+def get_active_recognizer_id() -> str:
+    """Return the id string of the currently active recognizer."""
+    if _recognizer_override:
+        return _recognizer_override
+    if settings.USE_LOCAL_MODEL:
+        return "local"
+    if settings.GROQ_API_KEY:
+        return "groq"
+    if settings.GEMINI_API_KEY:
+        return "gemini"
+    if settings.MATHPIX_APP_ID and settings.MATHPIX_APP_KEY:
+        return "mathpix"
+    return "mock"
+
+
 def get_recognizer() -> FormulaRecognizer:
-    """Return appropriate recognizer based on config.
+    """Return appropriate recognizer based on config or runtime override.
     Priority: Local → Groq → Gemini → Mathpix → Mock
     """
-    if settings.USE_LOCAL_MODEL:
+    target = get_active_recognizer_id()
+    if target == "local":
         return LocalRecognizer()
-    if settings.GROQ_API_KEY:
+    if target == "groq":
         return GroqRecognizer()
-    if settings.GEMINI_API_KEY:
+    if target == "gemini":
         return GeminiRecognizer()
-    if settings.MATHPIX_APP_ID and settings.MATHPIX_APP_KEY:
+    if target == "mathpix":
         return MathpixRecognizer()
     return MockRecognizer()

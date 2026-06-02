@@ -1,5 +1,5 @@
 import axios, { AxiosError } from 'axios';
-import type { TokenResponse } from '@/types';
+import type { TokenResponse, RecognizerListResponse } from '@/types';
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? '/api/v1';
 
@@ -99,4 +99,12 @@ export const formulaApi = {
   deleteHistoryItem: (id: string) => api.delete(`/formula/history/${id}`),
 
   toggleBookmark: (id: string) => api.patch(`/formula/history/${id}/bookmark`),
+};
+
+export const settingsApi = {
+  getRecognizer: () =>
+    api.get<RecognizerListResponse>('/settings/recognizer'),
+
+  setRecognizer: (recognizer: string) =>
+    api.patch<RecognizerListResponse>('/settings/recognizer', { recognizer }),
 };

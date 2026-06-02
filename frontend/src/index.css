@@ -470,6 +470,155 @@ html, body, #root {
 .color-dot:hover { transform: scale(1.1); }
 .color-dot.selected { border-color: var(--primary); }
 
+/* ===== RecognizerPanel ===== */
+.recognizer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  pointer-events: none;
+}
+
+.recognizer-panel {
+  position: absolute;
+  top: calc(var(--header-h) + 8px);
+  right: 1.25rem;
+  width: 320px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  pointer-events: all;
+  overflow: hidden;
+}
+
+.recognizer-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+
+.recognizer-panel-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.recognizer-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.recognizer-close:hover { background: var(--border); }
+
+.recognizer-list {
+  list-style: none;
+  padding: 0.5rem 0;
+}
+
+.recognizer-item {
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.recognizer-item:hover:not(.unavailable) { background: var(--bg-secondary); }
+.recognizer-item.active { background: color-mix(in srgb, var(--primary) 8%, transparent); }
+.recognizer-item.unavailable { opacity: 0.45; cursor: not-allowed; }
+
+.recognizer-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  cursor: inherit;
+}
+
+.recognizer-radio { display: none; }
+
+.recognizer-radio-custom {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  margin-top: 2px;
+  position: relative;
+  transition: border-color 0.15s;
+}
+.recognizer-item.active .recognizer-radio-custom {
+  border-color: var(--primary);
+}
+.recognizer-item.active .recognizer-radio-custom::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+
+.recognizer-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.recognizer-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.recognizer-desc {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.recognizer-badge {
+  font-size: 0.65rem;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  font-weight: 500;
+}
+.recognizer-badge.active-badge {
+  background: color-mix(in srgb, var(--success) 15%, transparent);
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 30%, transparent);
+}
+
+.recognizer-loading {
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.recognizer-hint {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  padding: 0.6rem 1rem;
+  border-top: 1px solid var(--border);
+  background: var(--bg-secondary);
+  line-height: 1.5;
+}
+.recognizer-hint code {
+  font-family: var(--mono);
+  background: var(--border);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 640px) {
   .bottom-section {

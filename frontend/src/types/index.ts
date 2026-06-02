@@ -44,6 +44,19 @@ export interface ApiError {
 
 export type Theme = 'light' | 'dark';
 
+export interface RecognizerInfo {
+  id: string;
+  name: string;
+  description: string;
+  available: boolean;
+  active: boolean;
+}
+
+export interface RecognizerListResponse {
+  active: string;
+  recognizers: RecognizerInfo[];
+}
+
 export interface Stroke {
   points: { x: number; y: number }[];
   color: string;

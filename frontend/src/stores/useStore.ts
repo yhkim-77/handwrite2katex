@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { User, FormulaHistoryItem, Theme } from '@/types';
+import type { User, FormulaHistoryItem, Theme, RecognizerInfo } from '@/types';
 
 interface AuthState {
   user: User | null;
@@ -100,6 +100,22 @@ export const useHistoryStore = create<HistoryState>((set) => ({
         i.id === id ? { ...i, is_bookmarked: !i.is_bookmarked } : i
       ),
     })),
+  setLoading: (v) => set({ isLoading: v }),
+}));
+
+interface RecognizerState {
+  recognizers: RecognizerInfo[];
+  active: string;
+  isLoading: boolean;
+  setRecognizers: (recognizers: RecognizerInfo[], active: string) => void;
+  setLoading: (v: boolean) => void;
+}
+
+export const useRecognizerStore = create<RecognizerState>((set) => ({
+  recognizers: [],
+  active: '',
+  isLoading: false,
+  setRecognizers: (recognizers, active) => set({ recognizers, active }),
   setLoading: (v) => set({ isLoading: v }),
 }));
 
