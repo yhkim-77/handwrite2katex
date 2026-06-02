@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker-compose -f /data6/youngho/workspace/handwrite2katex/docker-compose.yml up -d --force-recreate backend)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // \"\"' | { read -r f; echo \"$f\" | grep -qE '(/backend/|\\.env$)' && docker-compose --project-directory /data6/youngho/workspace/handwrite2katex -f /data6/youngho/workspace/handwrite2katex/docker-compose.yml up -d --force-recreate backend 2>&1 || true; }",
+            "timeout": 60,
+            "statusMessage": "백엔드 컨테이너 재시작 중..."
+          }
+        ]
+      }
+    ]
+  }
+}

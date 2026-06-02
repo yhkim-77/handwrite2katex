@@ -1,0 +1,85 @@
+services:
+  # ── PostgreSQL ───────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: h2k_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: h2k
+      POSTGRES_PASSWORD: h2kpassword
+      POSTGRES_DB: handwrite2katex
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U h2k -d handwrite2katex"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis ────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: h2k_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Backend (FastAPI) ────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: h2k_backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://h2k:h2kpassword@db:5432/handwrite2katex
+      REDIS_URL: redis://redis:6379/0
+      DEBUG: "true"
+      ALLOWED_ORIGINS: '["http://localhost:5173","http://localhost:3000","http://frontend:80"]'
+    volumes:
+      - ./backend:/app
+      - storage_data:/tmp/h2k_storage
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >
+      sh -c "
+        cd /app &&
+        alembic upgrade head &&
+        uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      "
+
+  # ── Frontend (Vite dev) ──────────────────────────────────────────
+  frontend:
+    image: node:20-alpine
+    container_name: h2k_frontend
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - node_modules:/app/node_modules
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: /api/v1
+      VITE_PROXY_TARGET: http://backend:8000
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    depends_on:
+      - backend
+
+volumes:
+  db_data:
+  storage_data:
+  node_modules:
