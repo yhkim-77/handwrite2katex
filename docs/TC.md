@@ -3,7 +3,7 @@
 
 | 항목 | 내용 |
 |------|------|
-| 문서 버전 | v1.2 |
+| 문서 버전 | v1.3 |
 | 작성일 | 2026-06-02 |
 | 최종 수정일 | 2026-06-02 |
 | 상태 | Approved |
@@ -105,6 +105,35 @@
 | TC-U-A05 | 잘못된 비밀번호 | 등록된 이메일 + 틀린 비밀번호 | 401 Unauthorized | P0 |
 | TC-U-A06 | Access Token 만료 | 만료된 토큰 사용 | 401 → 클라이언트 자동 갱신 | P0 |
 | TC-U-A07 | Refresh Token 무효화 | 로그아웃 후 Refresh Token 재사용 | 401 Unauthorized | P0 |
+
+### 2.6 AI 인식기 (Recognizer) — 선택 로직 & 응답 파싱
+
+#### 2.6.1 인식기 선택 로직 (get_recognizer)
+
+| TC-ID | 테스트 케이스 | 환경 설정 | 예상 결과 | 우선순위 |
+|-------|-------------|----------|----------|---------|
+| TC-U-R01 | 모든 키 미설정 → MockRecognizer | 전체 API 키 비어 있음 | `isinstance(get_recognizer(), MockRecognizer)` | P0 |
+| TC-U-R02 | USE_LOCAL_MODEL=true → LocalRecognizer | `USE_LOCAL_MODEL=true` | `isinstance(get_recognizer(), LocalRecognizer)` | P0 |
+| TC-U-R03 | GROQ_API_KEY 설정 → GroqRecognizer | `GROQ_API_KEY=fake-key` | `isinstance(get_recognizer(), GroqRecognizer)` | P0 |
+| TC-U-R04 | Groq+Gemini 동시 설정 → Groq 우선 | 두 키 모두 설정 | `isinstance(get_recognizer(), GroqRecognizer)` | P0 |
+| TC-U-R05 | Groq 없이 GEMINI 설정 → GeminiRecognizer | `GROQ_API_KEY=""`, `GEMINI_API_KEY=fake` | `isinstance(get_recognizer(), GeminiRecognizer)` | P0 |
+| TC-U-R06 | Groq·Gemini 없이 Mathpix 설정 → MathpixRecognizer | `MATHPIX_APP_ID=app_id`, `MATHPIX_APP_KEY=app_key` | `isinstance(get_recognizer(), MathpixRecognizer)` | P0 |
+
+#### 2.6.2 MathpixRecognizer 응답 파싱
+
+| TC-ID | 테스트 케이스 | 입력 (mock 응답) | 예상 결과 | 우선순위 |
+|-------|-------------|-----------------|----------|---------|
+| TC-U-R07 | 정상 응답 파싱 | `{"latex_simplified": "2^{x}", "confidence": 0.95}` | `result.latex == "2^{x}"`, `result.confidence == 0.95` | P0 |
+| TC-U-R08 | latex_simplified 필드 없음 | `{}` | `result.latex == ""` | P1 |
+| TC-U-R09 | 응답에 래퍼 포함 시 제거 | `{"latex_simplified": "$2^{x}$", "confidence": 0.9}` | `result.latex == "2^{x}"` ($래퍼 제거) | P1 |
+
+#### 2.6.3 API 실제 연동 (Integration, 키 없으면 Skip)
+
+| TC-ID | 테스트 케이스 | 조건 | 예상 결과 | 우선순위 |
+|-------|-------------|------|----------|---------|
+| TC-U-R10 | Mathpix API 키 유효성 확인 | `MATHPIX_APP_ID` 환경변수 존재 | 200 응답 (401/403 아닌 것 확인) | P1 |
+| TC-U-R11 | Groq API 키 유효성 확인 | `GROQ_API_KEY=gsk_...` | 200 또는 429 응답 | P0 |
+| TC-U-R12 | Gemini API 키 유효성 확인 | `GEMINI_API_KEY` 환경변수 존재 | 200 또는 429 응답 | P0 |
 
 ---
 
@@ -280,6 +309,18 @@
 | TC-U-C01~C08 | `frontend/src/__tests__/DrawingCanvas.test.tsx` | `test_drawing_*` | ✅ 구현 |
 | TC-U-L01~L05 | `frontend/src/__tests__/LaTeXPanel.test.tsx` | `test_latex_*` | ✅ 구현 |
 | TC-U-K01~K05 | `frontend/src/__tests__/KaTeXPanel.test.tsx` | `test_katex_*` | ✅ 구현 |
+| TC-U-R01 | `backend/tests/test_recognizer.py` | `test_get_recognizer_returns_mock_when_no_keys` | ✅ 구현 |
+| TC-U-R02 | `backend/tests/test_recognizer.py` | `test_get_recognizer_returns_local_when_flag_set` | 🔲 미구현 |
+| TC-U-R03 | `backend/tests/test_recognizer.py` | `test_get_recognizer_returns_groq_when_key_set` | ✅ 구현 |
+| TC-U-R04 | `backend/tests/test_recognizer.py` | `test_get_recognizer_groq_takes_priority_over_gemini` | ✅ 구현 |
+| TC-U-R05 | `backend/tests/test_recognizer.py` | `test_get_recognizer_returns_gemini_when_key_set` | ✅ 구현 |
+| TC-U-R06 | `backend/tests/test_recognizer.py` | `test_get_recognizer_returns_mathpix_when_gemini_absent` | ✅ 구현 |
+| TC-U-R07 | `backend/tests/test_recognizer.py` | `test_mathpix_recognizer_parses_response` | 🔲 미구현 |
+| TC-U-R08 | `backend/tests/test_recognizer.py` | `test_mathpix_recognizer_empty_response` | 🔲 미구현 |
+| TC-U-R09 | `backend/tests/test_recognizer.py` | `test_mathpix_recognizer_strips_wrappers` | 🔲 미구현 |
+| TC-U-R10 | `backend/tests/test_recognizer.py` | `test_mathpix_api_key_connectivity` | 🔲 미구현 |
+| TC-U-R11 | `backend/tests/test_recognizer.py` | `test_groq_api_key_connectivity` | ✅ 구현 |
+| TC-U-R12 | `backend/tests/test_recognizer.py` | `test_gemini_api_key_connectivity` | ✅ 구현 |
 | TC-I-01 | `backend/tests/test_integration.py` | `test_full_convert_flow` | ✅ 구현 |
 | TC-I-02 | `backend/tests/test_integration.py` | `test_history_auto_save` | ✅ 구현 |
 | TC-I-03 | `backend/tests/test_integration.py` | `test_convert_no_auth` | ✅ 구현 |
@@ -309,6 +350,7 @@
 
 | 버전 | 날짜 | 변경 내용 | 변경자 |
 |------|------|----------|--------|
+| v1.3 | 2026-06-02 | 섹션 2.6 AI 인식기 TC 신규 추가 (TC-U-R01~R12); Traceability Matrix에 Recognizer 항목 추가; TC-U-R07~R10 미구현 표시 | AI |
 | v1.2 | 2026-06-02 | 코드-문서 불일치 수정: TC-U-C08(3px), TC-U-B04(415), TC-U-B05(400), TC-U-L03(즉시반영), TC-U-L05(재시도버튼 미구현), TC-U-A01(PoC), TC-I-03(403), TC-I-04(offset), TC-I-07(502), TC-S-03(403), TC-S-04(404); Traceability Matrix 추가 | AI |
 | v1.1 | 2026-06-02 | TC-U-C04 스택 한도 무제한(PoC) 수정 | AI |
 | v1.0 | 2026-06-02 | 최초 작성 | AI |

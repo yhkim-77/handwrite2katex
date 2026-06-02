@@ -3,8 +3,9 @@
 
 | 항목 | 내용 |
 |------|------|
-| 문서 버전 | v1.0 |
+| 문서 버전 | v1.1 |
 | 작성일 | 2026-06-02 |
+| 최종 수정일 | 2026-06-02 |
 | 프로젝트 시작 | 2026-06-02 |
 | v1.0 목표 | 2027-01-31 |
 | 관련 문서 | [PRD.md](PRD.md) · [SRS.md](SRS.md) |
@@ -69,11 +70,11 @@ Jun    Jul    Aug    Sep    Oct    Nov    Dec    Jan
 
 **산출물**:
 - [x] docs/MRD.md
-- [x] docs/PRD.md
-- [x] docs/SRS.md
-- [x] docs/TC.md
+- [x] docs/PRD.md (v1.1 — AI 기술 스택 갱신)
+- [x] docs/SRS.md (v1.3 — 인식기 전환 정책 추가)
+- [x] docs/TC.md (v1.3 — TC-U-R01~R12 Recognizer 테스트 추가)
 - [x] docs/MILESTONE.md
-- [x] docs/LLM_REVIEW.md
+- [x] docs/LLM_REVIEW.md (v2.0 — 현재 구현 상태 + Mathpix 설정 가이드)
 - [ ] 와이어프레임 (Figma)
 - [ ] 개발 환경 README 작성
 
@@ -112,7 +113,7 @@ Jun    Jul    Aug    Sep    Oct    Nov    Dec    Jan
 | W9~W10 | **Frontend** 캔버스 PNG 이미지 직렬화 및 전송 | Frontend |
 | W11~W12 | **Backend** 이미지 수신 API (`POST /formula/convert`) | Backend |
 | W11~W12 | **Backend** 이미지 전처리 파이프라인 | ML Engineer |
-| W11~W12 | **Backend** LLM Vision API 연동 (초기 모델 선정) | ML Engineer |
+| W11~W12 | **Backend** AI 인식기 Adapter 구현 (pix2tex/Groq/Gemini/Mathpix/Mock) | ML Engineer |
 | W13~W14 | **Frontend** LaTeX 출력 패널 구현 | Frontend |
 | W13~W14 | **Frontend** KaTeX 렌더링 패널 구현 | Frontend |
 | W13~W14 | **Backend** S3 이미지 업로드 연동 | Backend |
@@ -215,6 +216,17 @@ Jun    Jul    Aug    Sep    Oct    Nov    Dec    Jan
 | **v1.2** | 2027 Q2 | LaTeX → PDF/Word 내보내기, LaTeX 편집기 강화 |
 | **v2.0** | 2027 Q3 | 실시간 협업 캔버스, 강사-학생 공유 세션 |
 | **v2.1** | 2027 Q4 | 수식 계산·그래프 연동 (Wolfram/Python), SDK 출시 |
+
+---
+
+---
+
+## 변경 이력
+
+| 버전 | 날짜 | 변경 내용 | 변경자 |
+|------|------|----------|--------|
+| v1.1 | 2026-06-02 | M0 산출물 현황 갱신 (docs 버전 반영); M2 AI 인식기 Adapter 항목 구체화 | AI |
+| v1.0 | 2026-06-02 | 최초 작성 | AI |
 
 ---
 

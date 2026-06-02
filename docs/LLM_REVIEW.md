@@ -3,10 +3,118 @@
 
 | 항목 | 내용 |
 |------|------|
-| 문서 버전 | v1.0 |
+| 문서 버전 | v2.0 |
 | 작성일 | 2026-06-02 |
+| 최종 수정일 | 2026-06-02 |
+| 상태 | Approved |
 | 작성자 | ML/AI Engineer |
 | 관련 문서 | [PRD.md](PRD.md) · [SRS.md](SRS.md) |
+
+---
+
+## 0. 현재 구현 상태 (v2.0 업데이트)
+
+### 0.1 인식기 우선순위 체계
+
+```
+USE_LOCAL_MODEL=true → pix2tex (LocalRecognizer)  ← 오프라인, API 비용 없음
+GROQ_API_KEY 설정   → Groq llama-4-scout (GroqRecognizer)
+GEMINI_API_KEY 설정 → Gemini 2.0 (GeminiRecognizer)
+MATHPIX_APP_ID+KEY  → Mathpix OCR (MathpixRecognizer)
+(없음)              → Mock (개발용 고정 응답)
+```
+
+`backend/app/services/recognizer.py::get_recognizer()` 에서 위 순서로 선택합니다.
+
+### 0.2 인식기별 설정 방법
+
+#### pix2tex (LocalRecognizer) — 로컬 CROHME+Transformer 모델
+
+```ini
+# .env
+USE_LOCAL_MODEL=true
+```
+
+- CROHME 2019 데이터셋 기반 ViT+Transformer 모델
+- 최초 `docker-compose build`시 모델 가중치(~500MB) 이미지에 포함
+- CPU 추론: 약 180ms~2초 / GPU 있으면 200ms 이하
+- API 비용 없음, 완전 오프라인 동작
+- 모델 출처: [`lukas-blecher/LaTeX-OCR`](https://github.com/lukas-blecher/LaTeX-OCR)
+
+#### Groq (GroqRecognizer) — llama-4-scout Vision
+
+```ini
+# .env
+GROQ_API_KEY=gsk_xxxxxxxxxxxxx
+GROQ_MODEL=meta-llama/llama-4-scout-17b-16e-instruct
+```
+
+1. [console.groq.com](https://console.groq.com) 로그인 → **API Keys** → **Create API Key**
+2. 발급된 `gsk_` 로 시작하는 키를 `.env`에 설정
+3. 무료 티어 제공 (Rate Limit 존재)
+
+#### Gemini (GeminiRecognizer) — Gemini 2.0 Flash Lite
+
+```ini
+# .env
+GEMINI_API_KEY=AIzaSyxxxxxxxxxxxxxx
+GEMINI_MODEL=gemini-2.0-flash-lite
+```
+
+1. [aistudio.google.com](https://aistudio.google.com) → **Get API key**
+2. 무료 티어: 1,500 req/day (2026년 기준)
+
+#### **Mathpix (MathpixRecognizer) — 수식 특화 OCR**
+
+```ini
+# .env
+MATHPIX_APP_ID=your_app_id
+MATHPIX_APP_KEY=your_app_key
+```
+
+1. [mathpix.com](https://mathpix.com) 회원가입 → **Dashboard** → **Account** → **API Keys**
+2. `APP_ID` (예: `your_org_abcdef`) 와 `APP_KEY` (긴 해시값) 발급
+3. 무료 티어: **100 req/월**, 초과 시 **$0.004/req**
+4. Groq·Gemini 키가 모두 없고 `USE_LOCAL_MODEL=false`일 때 자동 활성화
+
+**특징**:
+- 수식 특화 OCR로 인쇄체 기준 정확도 최상위 (95~98%)
+- 손글씨 정확도: 88~93%
+- 응답 시간: 500~1,000ms (가장 빠른 외부 API)
+- `/v3/text` 엔드포인트, `latex_simplified` 필드 반환
+
+**설정 확인 방법**:
+```bash
+# 컨테이너 내부에서 인식기 선택 결과 확인
+docker exec h2k_backend python3 -c "
+from app.services.recognizer import get_recognizer
+r = get_recognizer()
+print(type(r).__name__)
+"
+```
+
+#### Mock (MockRecognizer) — 개발용
+
+모든 API 키 미설정 시 자동 사용. 항상 `\frac{d}{dx}(x^2)=2x` 반환.
+
+### 0.3 .env.example 기준 전체 설정 예시
+
+```ini
+# 우선순위 1: 로컬 모델
+USE_LOCAL_MODEL=false          # true로 변경하면 pix2tex 사용
+
+# 우선순위 2: Groq (무료 Vision API)
+GROQ_API_KEY=gsk_...
+GROQ_MODEL=meta-llama/llama-4-scout-17b-16e-instruct
+
+# 우선순위 3: Google Gemini
+GEMINI_API_KEY=AIzaSy...
+GEMINI_MODEL=gemini-2.0-flash-lite
+
+# 우선순위 4: Mathpix (수식 특화 OCR)
+MATHPIX_APP_ID=your_app_id
+MATHPIX_APP_KEY=your_app_key
+```
 
 ---
 
@@ -192,37 +300,48 @@
 
 ## 6. 추천 전략 (권장 아키텍처)
 
-### Phase 1 — PoC / Beta (M2~M3)
+### Phase 1 — PoC / Beta (M2~M3) — **현재 구현 완료**
 
 ```
-[1순위] Gemini 1.5 Pro Vision
-  → 이유: 비용 효율 우수, 충분한 정확도, 빠른 통합
-  → 무료 티어로 PoC 진행 후 과금 모델 전환
+[구현된 우선순위 체계]
 
-[보조] Mathpix OCR API
-  → 이유: 높은 정확도, 빠른 응답
-  → 폴백(fallback): Gemini 변환 실패 시 Mathpix 재시도
+USE_LOCAL_MODEL=true  → pix2tex (LocalRecognizer)
+  → 이유: API 비용 없음, CROHME 학습 수식 특화 모델
+  → CPU 환경에서 약 180ms~2초 추론
+
+GROQ_API_KEY 설정     → Groq llama-4-scout-17b (GroqRecognizer)
+  → 이유: 무료 Vision API, OpenAI 호환 인터페이스
+  → 현재 Groq에서 지원하는 유일한 Vision 모델
+
+GEMINI_API_KEY 설정   → Gemini 2.0 Flash Lite (GeminiRecognizer)
+  → 이유: Google 무료 티어 1,500 req/day
+
+MATHPIX_APP_ID+KEY    → Mathpix OCR (MathpixRecognizer)
+  → 이유: 수식 특화 최고 정확도, 빠른 응답
+  → 무료 100 req/월, 이후 $0.004/req
+
+(없음)                → MockRecognizer (개발 fallback)
 ```
 
 ### Phase 2 — v1.0 이후 (M4~)
 
 ```
-[Primary] Gemini 1.5 Pro Vision 또는 GPT-4o
-  → 정확도 모니터링 결과에 따라 선택
-
-[장기 전략] Pix2Tex 파인튜닝 자체 모델
+[Primary] pix2tex 자체 Fine-tuning
   → 자체 수집 손글씨 데이터셋 구축 후 파인튜닝
   → API 비용 절감 + 개인정보 보호 강화
   → 예상 소요: 3~6개월 데이터 수집 + 2개월 학습
+
+[Fallback] Groq Vision 또는 Gemini 2.0
+  → 정확도 모니터링 결과에 따라 선택
 ```
 
-### 다중 모델 앙상블 (선택적 적용)
+### 다중 모델 앙상블 (v1.1+ 선택적 적용)
 
 ```
 ┌──────────────────────────────────────────────────┐
 │              Formula Service                      │
 │                                                   │
-│  이미지 → [Gemini 1.5 Pro]  → LaTeX₁              │
+│  이미지 → [Groq/Gemini]     → LaTeX₁              │
 │         → [Mathpix OCR]    → LaTeX₂              │
 │                                                   │
 │  신뢰도 비교:                                      │
@@ -360,34 +479,44 @@ def post_process_latex(raw_output: str) -> tuple[str, float]:
 
 ## 10. 결론 및 권고사항
 
-| 단계 | 권고 모델 | 이유 |
-|------|----------|------|
-| **PoC / M2** | Gemini 1.5 Pro Vision | 무료 티어, 빠른 통합, 충분한 정확도 |
-| **Beta / M3** | Gemini 1.5 Pro + Mathpix 폴백 | 안정성 확보, 정확도 93%+ 달성 |
-| **GA / M5** | 위 조합 유지 + Pix2Tex 파인튜닝 착수 | 비용 최적화 준비 |
-| **v1.1+** | 자체 파인튜닝 모델 점진적 교체 | 장기 비용 절감 + 데이터 주권 |
+| 단계 | 구현 모델 | 상태 | 이유 |
+|------|----------|------|------|
+| **PoC / M2** | pix2tex (Local) + Groq + Gemini + Mathpix | ✅ 구현 완료 | Adapter 패턴으로 4개 모델 동시 지원 |
+| **Beta / M3** | 위 조합 + 정확도 모니터링 | 🔲 예정 | 사용 통계 기반 최적 조합 선택 |
+| **GA / M5** | 위 조합 유지 + pix2tex 파인튜닝 착수 | 🔲 예정 | 비용 최적화 준비 |
+| **v1.1+** | 자체 파인튜닝 모델 점진적 교체 | 🔲 예정 | 장기 비용 절감 + 데이터 주권 |
 
 > **핵심 원칙**: LLM 공급자에 대한 의존도를 낮추기 위해 **Adapter 패턴**으로 모델 교체 가능한 인터페이스를 설계하고, 자체 데이터셋 구축과 오픈소스 모델 파인튜닝을 병행하여 장기적 비용 구조를 최적화한다.
 
 ```python
-# Adapter 패턴 예시
+# 현재 구현된 Adapter 패턴 (backend/app/services/recognizer.py)
 class FormulaRecognizer(ABC):
     @abstractmethod
-    async def convert(self, image: bytes) -> RecognitionResult:
-        ...
-
-class GeminiRecognizer(FormulaRecognizer):
     async def convert(self, image: bytes) -> RecognitionResult: ...
 
-class MathpixRecognizer(FormulaRecognizer):
-    async def convert(self, image: bytes) -> RecognitionResult: ...
+class LocalRecognizer(FormulaRecognizer): ...   # pix2tex (CROHME Transformer)
+class GroqRecognizer(FormulaRecognizer): ...    # Groq llama-4-scout Vision
+class GeminiRecognizer(FormulaRecognizer): ...  # Google Gemini 2.0
+class MathpixRecognizer(FormulaRecognizer): ... # Mathpix OCR
+class MockRecognizer(FormulaRecognizer): ...    # 개발용 Mock
 
-class Pix2TexRecognizer(FormulaRecognizer):
-    async def convert(self, image: bytes) -> RecognitionResult: ...
-
-# 설정 파일 한 줄 변경으로 모델 교체
-recognizer: FormulaRecognizer = GeminiRecognizer(api_key=settings.GEMINI_KEY)
+def get_recognizer() -> FormulaRecognizer:
+    """우선순위: Local → Groq → Gemini → Mathpix → Mock"""
+    if settings.USE_LOCAL_MODEL:   return LocalRecognizer()
+    if settings.GROQ_API_KEY:      return GroqRecognizer()
+    if settings.GEMINI_API_KEY:    return GeminiRecognizer()
+    if settings.MATHPIX_APP_ID:    return MathpixRecognizer()
+    return MockRecognizer()
 ```
+
+---
+
+## 변경 이력
+
+| 버전 | 날짜 | 변경 내용 | 변경자 |
+|------|------|----------|--------|
+| v2.0 | 2026-06-02 | 섹션 0 현재 구현 상태 추가 (pix2tex/Groq/Gemini/Mathpix 설정 가이드); 섹션 6·10 실제 구현 반영 갱신 | AI |
+| v1.0 | 2026-06-02 | 최초 작성 | AI |
 
 ---
 

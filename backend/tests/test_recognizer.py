@@ -9,6 +9,7 @@ from PIL import Image
 from app.services.recognizer import (
     GeminiRecognizer,
     GroqRecognizer,
+    LocalRecognizer,
     MathpixRecognizer,
     MockRecognizer,
     RecognitionResult,
@@ -27,6 +28,7 @@ def _make_png() -> bytes:
 
 def test_get_recognizer_returns_mock_when_no_keys(monkeypatch):
     """API 키가 없으면 MockRecognizer를 반환해야 한다."""
+    monkeypatch.setattr("app.services.recognizer.settings.USE_LOCAL_MODEL", False)
     monkeypatch.setattr("app.services.recognizer.settings.GROQ_API_KEY", "")
     monkeypatch.setattr("app.services.recognizer.settings.GEMINI_API_KEY", "")
     monkeypatch.setattr("app.services.recognizer.settings.MATHPIX_APP_ID", "")
@@ -34,28 +36,38 @@ def test_get_recognizer_returns_mock_when_no_keys(monkeypatch):
     assert isinstance(get_recognizer(), MockRecognizer)
 
 
+def test_get_recognizer_returns_local_when_flag_set(monkeypatch):
+    """TC-U-R02: USE_LOCAL_MODEL=true이면 LocalRecognizer를 반환해야 한다 (최우선)."""
+    monkeypatch.setattr("app.services.recognizer.settings.USE_LOCAL_MODEL", True)
+    assert isinstance(get_recognizer(), LocalRecognizer)
+
+
 def test_get_recognizer_returns_groq_when_key_set(monkeypatch):
-    """GROQ_API_KEY가 있으면 GroqRecognizer를 반환해야 한다 (최우선)."""
+    """TC-U-R03: GROQ_API_KEY가 있으면 GroqRecognizer를 반환해야 한다."""
+    monkeypatch.setattr("app.services.recognizer.settings.USE_LOCAL_MODEL", False)
     monkeypatch.setattr("app.services.recognizer.settings.GROQ_API_KEY", "fake-groq-key")
     assert isinstance(get_recognizer(), GroqRecognizer)
 
 
 def test_get_recognizer_groq_takes_priority_over_gemini(monkeypatch):
-    """GROQ_API_KEY와 GEMINI_API_KEY 모두 있으면 Groq이 우선이어야 한다."""
+    """TC-U-R04: GROQ_API_KEY와 GEMINI_API_KEY 모두 있으면 Groq이 우선이어야 한다."""
+    monkeypatch.setattr("app.services.recognizer.settings.USE_LOCAL_MODEL", False)
     monkeypatch.setattr("app.services.recognizer.settings.GROQ_API_KEY", "fake-groq-key")
     monkeypatch.setattr("app.services.recognizer.settings.GEMINI_API_KEY", "fake-gemini-key")
     assert isinstance(get_recognizer(), GroqRecognizer)
 
 
 def test_get_recognizer_returns_gemini_when_key_set(monkeypatch):
-    """GROQ 없이 GEMINI_API_KEY가 있으면 GeminiRecognizer를 반환해야 한다."""
+    """TC-U-R05: GROQ 없이 GEMINI_API_KEY가 있으면 GeminiRecognizer를 반환해야 한다."""
+    monkeypatch.setattr("app.services.recognizer.settings.USE_LOCAL_MODEL", False)
     monkeypatch.setattr("app.services.recognizer.settings.GROQ_API_KEY", "")
     monkeypatch.setattr("app.services.recognizer.settings.GEMINI_API_KEY", "fake-key")
     assert isinstance(get_recognizer(), GeminiRecognizer)
 
 
 def test_get_recognizer_returns_mathpix_when_gemini_absent(monkeypatch):
-    """GROQ/GEMINI 없이 Mathpix 키만 있으면 MathpixRecognizer를 반환해야 한다."""
+    """TC-U-R06: GROQ/GEMINI 없이 Mathpix 키만 있으면 MathpixRecognizer를 반환해야 한다."""
+    monkeypatch.setattr("app.services.recognizer.settings.USE_LOCAL_MODEL", False)
     monkeypatch.setattr("app.services.recognizer.settings.GROQ_API_KEY", "")
     monkeypatch.setattr("app.services.recognizer.settings.GEMINI_API_KEY", "")
     monkeypatch.setattr("app.services.recognizer.settings.MATHPIX_APP_ID", "app_id")
@@ -263,6 +275,113 @@ async def test_groq_recognizer_strips_wrappers(monkeypatch):
             result = await GroqRecognizer().convert(_make_png())
 
         assert result.latex == "2^{x}", f"래퍼 제거 실패: {wrapped!r} → {result.latex!r}"
+
+
+# ── MathpixRecognizer (mocked HTTP) ───────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_mathpix_recognizer_parses_response(monkeypatch):
+    """TC-U-R07: MathpixRecognizer가 latex_simplified 필드를 올바르게 파싱해야 한다."""
+    monkeypatch.setattr("app.services.recognizer.settings.GROQ_API_KEY", "")
+    monkeypatch.setattr("app.services.recognizer.settings.GEMINI_API_KEY", "")
+    monkeypatch.setattr("app.services.recognizer.settings.MATHPIX_APP_ID", "app_id")
+    monkeypatch.setattr("app.services.recognizer.settings.MATHPIX_APP_KEY", "app_key")
+    monkeypatch.setattr("app.services.recognizer.settings.SSL_VERIFY", False)
+
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status = MagicMock()
+    mock_resp.json = MagicMock(return_value={"latex_simplified": "2^{x}", "confidence": 0.95})
+
+    mock_client = AsyncMock()
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=False)
+    mock_client.post = AsyncMock(return_value=mock_resp)
+
+    with patch("app.services.recognizer.httpx.AsyncClient", return_value=mock_client):
+        result = await MathpixRecognizer().convert(_make_png())
+
+    assert result.latex == "2^{x}"
+    assert result.confidence == 0.95
+    assert result.model == "mathpix/ocr"
+
+
+@pytest.mark.asyncio
+async def test_mathpix_recognizer_empty_response(monkeypatch):
+    """TC-U-R08: latex_simplified 필드가 없으면 latex는 빈 문자열이어야 한다."""
+    monkeypatch.setattr("app.services.recognizer.settings.GROQ_API_KEY", "")
+    monkeypatch.setattr("app.services.recognizer.settings.GEMINI_API_KEY", "")
+    monkeypatch.setattr("app.services.recognizer.settings.MATHPIX_APP_ID", "app_id")
+    monkeypatch.setattr("app.services.recognizer.settings.MATHPIX_APP_KEY", "app_key")
+    monkeypatch.setattr("app.services.recognizer.settings.SSL_VERIFY", False)
+
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status = MagicMock()
+    mock_resp.json = MagicMock(return_value={})
+
+    mock_client = AsyncMock()
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=False)
+    mock_client.post = AsyncMock(return_value=mock_resp)
+
+    with patch("app.services.recognizer.httpx.AsyncClient", return_value=mock_client):
+        result = await MathpixRecognizer().convert(_make_png())
+
+    assert result.latex == ""
+
+
+@pytest.mark.asyncio
+async def test_mathpix_recognizer_strips_wrappers(monkeypatch):
+    """TC-U-R09: MathpixRecognizer도 $, $$, \\[\\] 래퍼를 제거해야 한다."""
+    monkeypatch.setattr("app.services.recognizer.settings.GROQ_API_KEY", "")
+    monkeypatch.setattr("app.services.recognizer.settings.GEMINI_API_KEY", "")
+    monkeypatch.setattr("app.services.recognizer.settings.MATHPIX_APP_ID", "app_id")
+    monkeypatch.setattr("app.services.recognizer.settings.MATHPIX_APP_KEY", "app_key")
+    monkeypatch.setattr("app.services.recognizer.settings.SSL_VERIFY", False)
+
+    for wrapped in ["$2^{x}$", "$$2^{x}$$", "\\[2^{x}\\]"]:
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status = MagicMock()
+        mock_resp.json = MagicMock(return_value={"latex_simplified": wrapped, "confidence": 0.9})
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.post = AsyncMock(return_value=mock_resp)
+
+        with patch("app.services.recognizer.httpx.AsyncClient", return_value=mock_client):
+            result = await MathpixRecognizer().convert(_make_png())
+
+        assert result.latex == "2^{x}", f"래퍼 제거 실패: {wrapped!r} → {result.latex!r}"
+
+
+# ── Mathpix API 실제 연동 테스트 (MATHPIX_APP_ID 환경변수 필요) ─────────────────
+
+MATHPIX_APP_ID = os.environ.get("MATHPIX_APP_ID", "")
+MATHPIX_APP_KEY = os.environ.get("MATHPIX_APP_KEY", "")
+
+
+@pytest.mark.integration
+@pytest.mark.skipif(
+    not MATHPIX_APP_ID or not MATHPIX_APP_KEY,
+    reason="MATHPIX_APP_ID/APP_KEY 환경변수 없음 — 실제 API 테스트 건너뜀",
+)
+@pytest.mark.asyncio
+async def test_mathpix_api_key_connectivity():
+    """TC-U-R10: 실제 Mathpix API 키가 유효하고 엔드포인트에 접근 가능한지 확인한다."""
+    import httpx
+    from app.core.config import settings
+
+    payload = {
+        "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+        "formats": ["latex_simplified"],
+    }
+    headers = {"app_id": MATHPIX_APP_ID, "app_key": MATHPIX_APP_KEY, "Content-Type": "application/json"}
+
+    async with httpx.AsyncClient(verify=settings.SSL_VERIFY, timeout=15.0) as client:
+        resp = await client.post("https://api.mathpix.com/v3/text", json=payload, headers=headers)
+
+    assert resp.status_code != 401, "Mathpix APP_ID 또는 APP_KEY가 유효하지 않습니다."
+    assert resp.status_code != 403, "Mathpix API 키 권한이 없습니다."
+    assert resp.status_code in (200, 429), f"예상치 못한 응답: {resp.status_code} — {resp.text[:200]}"
 
 
 # ── Groq API 실제 연동 테스트 (GROQ_API_KEY 환경변수 필요) ────────────────────

@@ -136,7 +136,8 @@ class MathpixRecognizer(FormulaRecognizer):
             resp.raise_for_status()
             data = resp.json()
 
-        latex = data.get("latex_simplified", "").strip()
+        raw = data.get("latex_simplified", "").strip()
+        latex, _ = _post_process(raw)
         confidence = float(data.get("confidence", 0.8))
         elapsed = int((time.monotonic() - start) * 1000)
         return RecognitionResult(

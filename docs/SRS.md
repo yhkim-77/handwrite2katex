@@ -3,7 +3,7 @@
 
 | 항목 | 내용 |
 |------|------|
-| 문서 버전 | v1.2 |
+| 문서 버전 | v1.3 |
 | 작성일 | 2026-06-02 |
 | 최종 수정일 | 2026-06-02 |
 | 상태 | Approved |
@@ -124,18 +124,32 @@
   4. 여백 자동 크롭
 - **검증 기준**: 전처리 처리 시간 ≤ 200ms
 
-#### SRS-L02: LLM Vision 모델 호출
-- **설명**: 전처리된 이미지를 LLM Vision 모델 API에 전달하여 LaTeX 코드를 수신한다.
-- **요청 형식**: Base64 인코딩 이미지 + 시스템 프롬프트
-- **시스템 프롬프트 예시**:
+#### SRS-L02: LLM Vision 모델 호출 (Adapter 패턴)
+- **설명**: 전처리된 이미지를 Adapter 패턴으로 선택된 인식기에 전달하여 LaTeX 코드를 수신한다.
+- **인식기 우선순위**: `LocalRecognizer → GroqRecognizer → GeminiRecognizer → MathpixRecognizer → MockRecognizer`
+- **선택 기준**: `.env` 설정값에 따라 `get_recognizer()`가 런타임에 자동 선택
+- **요청 형식**: Base64 인코딩 이미지 + 시스템 프롬프트 (Mathpix 제외 — 별도 API 스키마)
+- **시스템 프롬프트**:
   ```
-  You are a mathematical formula OCR engine.
-  Analyze the handwritten mathematical expression in the image
-  and output ONLY the corresponding LaTeX code without any explanation.
-  Output format: pure LaTeX expression (e.g., \frac{d}{dx}(x^2)=2x)
+  You are a specialized mathematical formula OCR engine.
+  Output ONLY the raw LaTeX code without explanation or delimiters.
+  If unreadable, output: ERROR:UNREADABLE
   ```
-- **응답 파싱**: LaTeX 코드만 추출, 불필요한 래퍼 제거
-- **검증 기준**: 변환 정확도 ≥ 92% (수식 단위 정확도)
+- **응답 파싱**: LaTeX 코드만 추출, `$`, `$$`, `\[...\]` 래퍼 자동 제거
+- **검증 기준**: 변환 정확도 ≥ 92% (수식 단위 Semantic Match)
+
+#### SRS-L04: 인식기 설정 및 전환 정책
+- **설명**: 시스템 관리자는 `.env` 설정만으로 인식기를 무중단 교체할 수 있어야 한다.
+- **설정 항목**:
+
+  | 환경변수 | 대상 인식기 | 기본값 |
+  |----------|------------|--------|
+  | `USE_LOCAL_MODEL=true` | LocalRecognizer (pix2tex) | false |
+  | `GROQ_API_KEY=gsk_...` | GroqRecognizer | 미설정 |
+  | `GEMINI_API_KEY=...` | GeminiRecognizer | 미설정 |
+  | `MATHPIX_APP_ID` + `MATHPIX_APP_KEY` | MathpixRecognizer | 미설정 |
+
+- **제약**: 컨테이너 재시작(`docker-compose up -d --force-recreate backend`) 필요
 
 #### SRS-L03: 변환 결과 반환
 - **설명**: 변환된 LaTeX 코드와 신뢰도 점수를 클라이언트에 반환한다.
@@ -217,13 +231,23 @@
 
 ### 4.3 소프트웨어 인터페이스
 
-| 시스템 | 연동 방식 | 목적 |
-|--------|-----------|------|
-| LLM Vision API | REST (HTTPS) | 수식 이미지 → LaTeX 변환 |
-| Google OAuth 2.0 | OAuth 2.0 Authorization Code | 소셜 로그인 |
-| Apple Sign-In | OAuth 2.0 / OIDC | 소셜 로그인 |
-| AWS S3 / MinIO | AWS SDK / S3 호환 API | 이미지 저장 |
-| Firebase FCM | HTTP v1 API | 푸시 알림 (향후) |
+| 시스템 | 연동 방식 | 목적 | 설정 키 |
+|--------|-----------|------|---------|
+| pix2tex (로컬 모델) | Python 라이브러리 직접 호출 | 오프라인 수식 OCR (CROHME Transformer) | `USE_LOCAL_MODEL` |
+| Groq API | REST HTTPS (OpenAI 호환) | llama-4-scout Vision 수식 변환 | `GROQ_API_KEY`, `GROQ_MODEL` |
+| Google Gemini API | REST HTTPS | Gemini 2.0 수식 변환 | `GEMINI_API_KEY`, `GEMINI_MODEL` |
+| **Mathpix OCR API** | **REST HTTPS** | **수식 특화 OCR, LaTeX/MathML 반환** | **`MATHPIX_APP_ID`, `MATHPIX_APP_KEY`** |
+| Google OAuth 2.0 | OAuth 2.0 Authorization Code | 소셜 로그인 | — |
+| Apple Sign-In | OAuth 2.0 / OIDC | 소셜 로그인 | — |
+| AWS S3 / MinIO | AWS SDK / S3 호환 API | 이미지 저장 | `AWS_*`, `MINIO_*` |
+| Firebase FCM | HTTP v1 API | 푸시 알림 (향후) | — |
+
+**Mathpix API 상세**:
+- 엔드포인트: `https://api.mathpix.com/v3/text`
+- 인증: `app_id` / `app_key` HTTP 헤더
+- 요청: `{ "src": "data:image/png;base64,...", "formats": ["latex_simplified"] }`
+- 응답: `{ "latex_simplified": "\\frac{d}{dx}(x^2)=2x", "confidence": 0.97 }`
+- 무료 한도: 100 req/월 → 초과 시 $0.004/req
 
 ### 4.4 통신 인터페이스
 
@@ -315,6 +339,7 @@
 
 | 버전 | 날짜 | 변경 내용 | 변경자 |
 |------|------|----------|--------|
+| v1.3 | 2026-06-02 | SRS-L02 Adapter 패턴 인식기 우선순위 체계 반영; SRS-L04 신규 추가 (인식기 전환 정책); 4.3 소프트웨어 인터페이스에 pix2tex/Groq/Gemini/Mathpix 상세 추가 | AI |
 | v1.2 | 2026-06-02 | SRS-A02(HS256, Redis 미구현 PoC 명시), SRS-A01(이메일 인증 PoC 명시), SRS-H02(Offset 기반), SRS-K02(Debounce PoC 명시), SRS-C03(무제한 스택 PoC 명시) | AI |
 | v1.0 | 2026-06-02 | 최초 작성 | AI |
 

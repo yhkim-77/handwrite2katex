@@ -3,8 +3,9 @@
 
 | 항목 | 내용 |
 |------|------|
-| 문서 버전 | v1.0 |
+| 문서 버전 | v1.1 |
 | 작성일 | 2026-06-02 |
+| 최종 수정일 | 2026-06-02 |
 | 상태 | Draft |
 | 관련 문서 | [MRD.md](MRD.md) · [SRS.md](SRS.md) |
 
@@ -182,6 +183,10 @@
 | **컨테이너** | Docker + Docker Compose | 로컬 개발 환경 통일 |
 | **CI/CD** | GitHub Actions | 자동 테스트·배포 |
 | **모니터링** | Prometheus + Grafana | 메트릭 수집·시각화 |
+| **AI — 로컬 모델** | pix2tex (LaTeX-OCR) | CROHME Transformer, 오프라인 추론, API 비용 없음 |
+| **AI — Vision API 1** | Groq llama-4-scout-17b | 무료 Vision API, OpenAI 호환 |
+| **AI — Vision API 2** | Google Gemini 2.0 Flash Lite | 무료 티어 1,500 req/day |
+| **AI — 수식 특화 OCR** | Mathpix OCR API | 수식 특화 최고 정확도, 무료 100 req/월 |
 
 ---
 
@@ -255,6 +260,15 @@ CREATE INDEX idx_formula_history_created_at ON formula_history(created_at DESC);
 | **v0.5 (Beta)** | KaTeX 렌더링 + 이력 저장 + 인증 | M4 |
 | **v1.0 (GA)** | Android/iOS 앱 + 전체 기능 | M7 |
 | **v1.1** | 이력 분석 대시보드 + API 파트너 연동 | M9 |
+
+---
+
+## 변경 이력
+
+| 버전 | 날짜 | 변경 내용 | 변경자 |
+|------|------|----------|--------|
+| v1.1 | 2026-06-02 | 6. 기술 스택에 AI 모델 4종 추가 (pix2tex/Groq/Gemini/Mathpix) | AI |
+| v1.0 | 2026-06-02 | 최초 작성 | AI |
 
 ---
 
