@@ -3,9 +3,9 @@
 
 | 항목 | 내용 |
 |------|------|
-| 문서 버전 | v1.1 |
+| 문서 버전 | v1.2 |
 | 작성일 | 2026-06-02 |
-| 최종 수정일 | 2026-06-02 |
+| 최종 수정일 | 2026-06-04 |
 | 상태 | Draft |
 | 관련 문서 | [MRD.md](MRD.md) · [SRS.md](SRS.md) |
 
@@ -170,10 +170,10 @@
 
 | 영역 | 기술 | 선정 이유 |
 |------|------|-----------|
-| **Frontend (공통)** | React Native + Expo | 단일 코드베이스로 Web/Android/iOS 대응 |
-| **Web 렌더링** | React Native Web | Expo의 web 타겟으로 PWA 지원 |
+| **Frontend (Web, 현재)** | React 18 + Vite + TypeScript | 빠른 HMR, 경량 번들, 현재 구현 |
+| **Frontend (모바일, 예정)** | React Native + Expo | Web 코드 최대 재사용, Android/iOS 대응 |
 | **수식 렌더링** | KaTeX | 빠른 클라이언트 렌더링, MIT 라이선스 |
-| **상태 관리** | Zustand | 경량, React Native 호환 |
+| **상태 관리** | Zustand | 경량, React 호환, persist 미들웨어 |
 | **Backend** | FastAPI (Python 3.12) | 비동기 처리, LLM 라이브러리 생태계 |
 | **ORM** | SQLAlchemy 2.0 + Alembic | 비동기 지원, 마이그레이션 관리 |
 | **DB** | PostgreSQL 16 | JSONB 지원, 확장성 |
@@ -267,6 +267,7 @@ CREATE INDEX idx_formula_history_created_at ON formula_history(created_at DESC);
 
 | 버전 | 날짜 | 변경 내용 | 변경자 |
 |------|------|----------|--------|
+| v1.2 | 2026-06-04 | 6. 기술 스택 Frontend 현재 구현 반영 (React Native → React+Vite, 모바일은 예정으로 변경) | AI |
 | v1.1 | 2026-06-02 | 6. 기술 스택에 AI 모델 4종 추가 (pix2tex/Groq/Gemini/Mathpix) | AI |
 | v1.0 | 2026-06-02 | 최초 작성 | AI |
 

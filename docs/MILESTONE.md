@@ -3,9 +3,9 @@
 
 | 항목 | 내용 |
 |------|------|
-| 문서 버전 | v1.1 |
+| 문서 버전 | v1.2 |
 | 작성일 | 2026-06-02 |
-| 최종 수정일 | 2026-06-02 |
+| 최종 수정일 | 2026-06-04 |
 | 프로젝트 시작 | 2026-06-02 |
 | v1.0 목표 | 2027-01-31 |
 | 관련 문서 | [PRD.md](PRD.md) · [SRS.md](SRS.md) |
@@ -59,12 +59,12 @@ Jun    Jul    Aug    Sep    Oct    Nov    Dec    Jan
 | W1 (06/02~06/08) | MRD / PRD 작성 완료 | PM | ✅ |
 | W1 | SRS / TC 작성 완료 | PM + QA | ✅ |
 | W1 | LLM 모델 검토 보고서 작성 | ML Engineer | ✅ |
-| W2 (06/09~06/15) | 기술 스택 최종 확정 | Tech Lead | 🔲 |
-| W2 | 개발 환경 구성 (Docker, 레포 초기화) | DevOps | 🔲 |
+| W2 (06/09~06/15) | 기술 스택 최종 확정 | Tech Lead | ✅ |
+| W2 | 개발 환경 구성 (Docker Compose, 레포 초기화) | DevOps | ✅ |
 | W2 | UI/UX 와이어프레임 초안 | Designer | 🔲 |
-| W3 (06/16~06/22) | DB 스키마 초안 설계 | Backend | 🔲 |
-| W3 | API 엔드포인트 설계 문서 작성 | Backend | 🔲 |
-| W3 | 프론트엔드 컴포넌트 트리 설계 | Frontend | 🔲 |
+| W3 (06/16~06/22) | DB 스키마 초안 설계 | Backend | ✅ |
+| W3 | API 엔드포인트 설계 문서 작성 | Backend | ✅ |
+| W3 | 프론트엔드 컴포넌트 트리 설계 | Frontend | ✅ |
 | W4 (06/23~06/30) | 팀 킥오프 미팅 및 리뷰 | 전체 | 🔲 |
 | W4 | 개발 브랜치 전략 확정 (Git Flow) | DevOps | 🔲 |
 
@@ -97,9 +97,9 @@ Jun    Jul    Aug    Sep    Oct    Nov    Dec    Jan
 | W7~W8 | **DevOps** Docker Compose 개발 환경 완성 | DevOps | `docker-compose.yml` |
 
 **완료 기준**:
-- [ ] 로컬 `docker compose up` 으로 전체 서비스 실행
-- [ ] JWT 기반 로그인 API 정상 동작
-- [ ] CI에서 단위 테스트 자동 실행
+- [x] 로컬 `docker compose up` 으로 전체 서비스 실행 ✅
+- [x] JWT 기반 로그인 API 정상 동작 ✅
+- [x] CI에서 단위 테스트 자동 실행 ✅
 
 ---
 
@@ -121,8 +121,10 @@ Jun    Jul    Aug    Sep    Oct    Nov    Dec    Jan
 | W15~W16 | **ML** 모델 정확도 1차 평가 (120개 수식 테스트셋) | ML Engineer |
 
 **완료 기준**:
-- [ ] Canvas에 수식 입력 → LaTeX 변환 → KaTeX 렌더링 전체 흐름 동작 (Web)
-- [ ] 수식 인식 정확도 ≥ 85% (PoC 목표)
+- [x] Canvas에 수식 입력 → LaTeX 변환 → KaTeX 렌더링 전체 흐름 동작 (Web) ✅
+- [x] AI 인식기 Adapter 구현 완료 (pix2tex/Groq/Gemini/Mathpix/Mock) ✅
+- [x] 런타임 인식기 전환 UI (⚙️ 패널) ✅
+- [ ] 수식 인식 정확도 ≥ 85% 검증 (테스트셋 기반)
 - [ ] 변환 API 응답 시간 ≤ 5초 (PoC 목표)
 - [ ] 내부 데모 발표 완료
 
@@ -225,6 +227,7 @@ Jun    Jul    Aug    Sep    Oct    Nov    Dec    Jan
 
 | 버전 | 날짜 | 변경 내용 | 변경자 |
 |------|------|----------|--------|
+| v1.2 | 2026-06-04 | M0 W2·W3 완료 표시; M1 완료 기준 달성 표시; M2 완료 기준 실제 구현 반영 | AI |
 | v1.1 | 2026-06-02 | M0 산출물 현황 갱신 (docs 버전 반영); M2 AI 인식기 Adapter 항목 구체화 | AI |
 | v1.0 | 2026-06-02 | 최초 작성 | AI |
 

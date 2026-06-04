@@ -3,7 +3,7 @@
 
 | 항목 | 내용 |
 |------|------|
-| 문서 버전 | v1.3 |
+| 문서 버전 | v1.4 |
 | 작성일 | 2026-06-02 |
 | 최종 수정일 | 2026-06-02 |
 | 상태 | Approved |
@@ -310,17 +310,21 @@
 | TC-U-L01~L05 | `frontend/src/__tests__/LaTeXPanel.test.tsx` | `test_latex_*` | ✅ 구현 |
 | TC-U-K01~K05 | `frontend/src/__tests__/KaTeXPanel.test.tsx` | `test_katex_*` | ✅ 구현 |
 | TC-U-R01 | `backend/tests/test_recognizer.py` | `test_get_recognizer_returns_mock_when_no_keys` | ✅ 구현 |
-| TC-U-R02 | `backend/tests/test_recognizer.py` | `test_get_recognizer_returns_local_when_flag_set` | 🔲 미구현 |
+| TC-U-R02 | `backend/tests/test_recognizer.py` | `test_get_recognizer_returns_local_when_flag_set` | ✅ 구현 |
 | TC-U-R03 | `backend/tests/test_recognizer.py` | `test_get_recognizer_returns_groq_when_key_set` | ✅ 구현 |
 | TC-U-R04 | `backend/tests/test_recognizer.py` | `test_get_recognizer_groq_takes_priority_over_gemini` | ✅ 구현 |
 | TC-U-R05 | `backend/tests/test_recognizer.py` | `test_get_recognizer_returns_gemini_when_key_set` | ✅ 구현 |
 | TC-U-R06 | `backend/tests/test_recognizer.py` | `test_get_recognizer_returns_mathpix_when_gemini_absent` | ✅ 구현 |
-| TC-U-R07 | `backend/tests/test_recognizer.py` | `test_mathpix_recognizer_parses_response` | 🔲 미구현 |
-| TC-U-R08 | `backend/tests/test_recognizer.py` | `test_mathpix_recognizer_empty_response` | 🔲 미구현 |
-| TC-U-R09 | `backend/tests/test_recognizer.py` | `test_mathpix_recognizer_strips_wrappers` | 🔲 미구현 |
-| TC-U-R10 | `backend/tests/test_recognizer.py` | `test_mathpix_api_key_connectivity` | 🔲 미구현 |
+| TC-U-R07 | `backend/tests/test_recognizer.py` | `test_mathpix_recognizer_parses_response` | ✅ 구현 |
+| TC-U-R08 | `backend/tests/test_recognizer.py` | `test_mathpix_recognizer_empty_response` | ✅ 구현 |
+| TC-U-R09 | `backend/tests/test_recognizer.py` | `test_mathpix_recognizer_strips_wrappers` | ✅ 구현 |
+| TC-U-R10 | `backend/tests/test_recognizer.py` | `test_mathpix_api_key_connectivity` | ✅ 구현 |
 | TC-U-R11 | `backend/tests/test_recognizer.py` | `test_groq_api_key_connectivity` | ✅ 구현 |
 | TC-U-R12 | `backend/tests/test_recognizer.py` | `test_gemini_api_key_connectivity` | ✅ 구현 |
+| TC-U-F01 | `backend/tests/test_formula.py` | `test_convert_requires_auth` | ✅ 구현 |
+| TC-U-F02 | `backend/tests/test_formula.py` | `test_convert_success_mock` | ✅ 구현 |
+| TC-U-F03 | `backend/tests/test_formula.py` | `test_history_after_convert` | ✅ 구현 |
+| TC-U-IM01 | `backend/tests/test_image.py` | `test_preprocess_returns_png` | ✅ 구현 |
 | TC-I-01 | `backend/tests/test_integration.py` | `test_full_convert_flow` | ✅ 구현 |
 | TC-I-02 | `backend/tests/test_integration.py` | `test_history_auto_save` | ✅ 구현 |
 | TC-I-03 | `backend/tests/test_integration.py` | `test_convert_no_auth` | ✅ 구현 |
@@ -350,6 +354,7 @@
 
 | 버전 | 날짜 | 변경 내용 | 변경자 |
 |------|------|----------|--------|
+| v1.4 | 2026-06-04 | TC-U-R02·R07~R10 미구현→구현 수정; TC-U-F01~F03, TC-U-IM01 Matrix 추가; 실제 테스트 코드와 동기화 | AI |
 | v1.3 | 2026-06-02 | 섹션 2.6 AI 인식기 TC 신규 추가 (TC-U-R01~R12); Traceability Matrix에 Recognizer 항목 추가; TC-U-R07~R10 미구현 표시 | AI |
 | v1.2 | 2026-06-02 | 코드-문서 불일치 수정: TC-U-C08(3px), TC-U-B04(415), TC-U-B05(400), TC-U-L03(즉시반영), TC-U-L05(재시도버튼 미구현), TC-U-A01(PoC), TC-I-03(403), TC-I-04(offset), TC-I-07(502), TC-S-03(403), TC-S-04(404); Traceability Matrix 추가 | AI |
 | v1.1 | 2026-06-02 | TC-U-C04 스택 한도 무제한(PoC) 수정 | AI |

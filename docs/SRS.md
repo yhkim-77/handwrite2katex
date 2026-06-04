@@ -3,7 +3,7 @@
 
 | 항목 | 내용 |
 |------|------|
-| 문서 버전 | v1.3 |
+| 문서 버전 | v1.4 |
 | 작성일 | 2026-06-02 |
 | 최종 수정일 | 2026-06-02 |
 | 상태 | Approved |
@@ -137,6 +137,27 @@
   ```
 - **응답 파싱**: LaTeX 코드만 추출, `$`, `$$`, `\[...\]` 래퍼 자동 제거
 - **검증 기준**: 변환 정확도 ≥ 92% (수식 단위 Semantic Match)
+
+#### SRS-L03b: 런타임 인식기 전환 API
+- **설명**: 서버 재시작 없이 인식기를 전환할 수 있는 관리 API를 제공한다.
+- **엔드포인트**:
+  - `GET  /api/v1/settings/recognizer` — 전체 인식기 목록 및 현재 활성 인식기 조회
+  - `PATCH /api/v1/settings/recognizer` — 활성 인식기 변경 (`{"recognizer": "groq"}`)
+- **응답 스키마**:
+  ```json
+  {
+    "active": "groq",
+    "recognizers": [
+      {"id": "local",   "name": "pix2tex (Local)", "available": true, "active": false},
+      {"id": "groq",    "name": "Groq Vision",     "available": true, "active": true},
+      {"id": "gemini",  "name": "Gemini 2.0",      "available": true, "active": false},
+      {"id": "mathpix", "name": "Mathpix OCR",     "available": false,"active": false},
+      {"id": "mock",    "name": "Mock (개발용)",    "available": true, "active": false}
+    ]
+  }
+  ```
+- **제약**: 런타임 변경은 메모리 저장 — 서버 재시작 시 `.env` 기준으로 초기화됨
+- **인증**: JWT Bearer 토큰 필수 (로그인 사용자만 변경 가능)
 
 #### SRS-L04: 인식기 설정 및 전환 정책
 - **설명**: 시스템 관리자는 `.env` 설정만으로 인식기를 무중단 교체할 수 있어야 한다.
@@ -339,6 +360,7 @@
 
 | 버전 | 날짜 | 변경 내용 | 변경자 |
 |------|------|----------|--------|
+| v1.4 | 2026-06-04 | SRS-L03b 신규 추가 (런타임 인식기 전환 API `/settings/recognizer`) | AI |
 | v1.3 | 2026-06-02 | SRS-L02 Adapter 패턴 인식기 우선순위 체계 반영; SRS-L04 신규 추가 (인식기 전환 정책); 4.3 소프트웨어 인터페이스에 pix2tex/Groq/Gemini/Mathpix 상세 추가 | AI |
 | v1.2 | 2026-06-02 | SRS-A02(HS256, Redis 미구현 PoC 명시), SRS-A01(이메일 인증 PoC 명시), SRS-H02(Offset 기반), SRS-K02(Debounce PoC 명시), SRS-C03(무제한 스택 PoC 명시) | AI |
 | v1.0 | 2026-06-02 | 최초 작성 | AI |
