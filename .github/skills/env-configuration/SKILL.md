@@ -64,26 +64,105 @@ applyTo: ".env,.env.example,docker-compose.yml,backend/app/core/config.py"
 
 ### 2.5 AI 인식기 (우선순위 순)
 
-| 변수 | 예시값 | 설명 |
-|------|--------|------|
-| `USE_LOCAL_MODEL` | `false` | `true` → pix2tex 로컬 모델 사용 (오프라인, API 비용 없음) |
-| `GROQ_API_KEY` | `gsk_...` | Groq API 키. [console.groq.com](https://console.groq.com) 발급. `gsk_`로 시작 |
-| `GROQ_MODEL` | `meta-llama/llama-4-scout-17b-16e-instruct` | Groq Vision 모델명 |
-| `GEMINI_API_KEY` | `AIzaSy...` | Google Gemini API 키. [aistudio.google.com](https://aistudio.google.com) 발급 |
-| `GEMINI_MODEL` | `gemini-2.0-flash-lite` | Gemini 모델명 |
-| `MATHPIX_APP_ID` | `your_org_abcdef` | Mathpix App ID. [mathpix.com](https://mathpix.com) Dashboard 발급 |
-| `MATHPIX_APP_KEY` | `...` | Mathpix App Key |
-
 **인식기 우선순위**:
 ```
-USE_LOCAL_MODEL=true  → pix2tex
-GROQ_API_KEY 설정     → Groq llama-4-scout
-GEMINI_API_KEY 설정   → Gemini 2.0
-MATHPIX_APP_ID+KEY    → Mathpix OCR
+USE_LOCAL_MODEL=true  → pix2tex (오프라인, API 비용 없음)
+GROQ_API_KEY 설정     → Groq llama-4-scout (무료 tier)
+GEMINI_API_KEY 설정   → Gemini 2.0 (무료 1,500 req/day)
+MATHPIX_APP_ID+KEY    → Mathpix OCR (수식 특화, 무료 100 req/월)
 (없음)                → Mock (개발용 고정 응답)
 ```
 
-런타임 전환 (서버 재시작 없이): `PATCH /api/v1/settings/recognizer {"recognizer": "groq"}`
+런타임 전환 (재시작 없이): `PATCH /api/v1/settings/recognizer {"recognizer": "groq"}`
+
+---
+
+#### USE_LOCAL_MODEL — pix2tex 로컬 모델
+
+```ini
+USE_LOCAL_MODEL=true
+```
+
+- 별도 API 키 불필요. `docker-compose build` 시 모델 가중치 자동 포함
+- CPU 추론 약 180ms~2초, 완전 오프라인 동작
+- 모델: [lukas-blecher/LaTeX-OCR](https://github.com/lukas-blecher/LaTeX-OCR) (CROHME 학습)
+
+---
+
+#### GROQ_API_KEY — Groq Vision API
+
+**발급 사이트**: https://console.groq.com
+
+```
+1. https://console.groq.com 접속 후 회원가입 / 로그인
+2. 좌측 메뉴 "API Keys" 클릭
+3. "Create API Key" 버튼 → 키 이름 입력 → 생성
+4. 생성된 키 복사 (gsk_ 로 시작, 재확인 불가 — 즉시 저장 필수)
+```
+
+```ini
+GROQ_API_KEY=gsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+GROQ_MODEL=meta-llama/llama-4-scout-17b-16e-instruct
+```
+
+| 항목 | 내용 |
+|------|------|
+| 무료 한도 | Rate limit 있음 (분당 요청 수 제한) |
+| 키 형식 | `gsk_` 로 시작 |
+| 현재 Vision 모델 | `meta-llama/llama-4-scout-17b-16e-instruct` (2026년 기준 유일) |
+| 주의 | `llama-3.2-11b-vision-preview` 는 2026년 폐기(decommissioned) |
+
+---
+
+#### GEMINI_API_KEY — Google Gemini
+
+**발급 사이트**: https://aistudio.google.com
+
+```
+1. https://aistudio.google.com 접속 후 Google 계정 로그인
+2. 상단 "Get API key" 버튼 클릭
+3. "Create API key in new project" 또는 기존 프로젝트 선택
+4. 생성된 키 복사 (AIzaSy 로 시작)
+```
+
+```ini
+GEMINI_API_KEY=AIzaSyxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+GEMINI_MODEL=gemini-2.0-flash-lite
+```
+
+| 항목 | 내용 |
+|------|------|
+| 무료 한도 | 1,500 req/day (2026년 기준) |
+| 키 형식 | `AIzaSy` 로 시작 |
+| 주의 | 사내망에서 SSL 오류 시 `SSL_VERIFY=false` 설정 필요 |
+| 주의 | `gemini-1.5-pro` 엔드포인트는 404 오류 → `gemini-2.0-flash-lite` 사용 |
+
+---
+
+#### MATHPIX_APP_ID / MATHPIX_APP_KEY — Mathpix OCR
+
+**발급 사이트**: https://mathpix.com
+
+```
+1. https://mathpix.com 접속 후 회원가입 / 로그인
+2. 우측 상단 아바타 아이콘 클릭 → "Account" 선택
+3. "API Keys" 탭 클릭
+4. "Create App" 버튼 → App Name 입력 (예: handwrite2katex)
+5. 생성된 APP_ID 와 APP_KEY 복사
+```
+
+```ini
+MATHPIX_APP_ID=your_org_abcdef
+MATHPIX_APP_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+| 항목 | 내용 |
+|------|------|
+| 무료 한도 | 100 req/월 |
+| 초과 요금 | $0.004 / req |
+| 손글씨 정확도 | 88~93% (프로젝트 내 인식기 중 최상위) |
+| 인쇄체 정확도 | 95~98% |
+| API 엔드포인트 | `https://api.mathpix.com/v3/text` |
 
 ### 2.6 스토리지
 

@@ -50,15 +50,59 @@ applyTo: ".env,.env.example,docker-compose.yml,backend/app/core/config.py"
 
 ### AI 인식기 (우선순위 순)
 
-| 변수 | 예시 | 비고 |
-|------|------|------|
-| `USE_LOCAL_MODEL` | `false` | `true` → pix2tex 로컬 모델 (오프라인) |
-| `GROQ_API_KEY` | `gsk_...` | Groq Vision API. `gsk_`로 시작 |
-| `GROQ_MODEL` | `meta-llama/llama-4-scout-17b-16e-instruct` | |
-| `GEMINI_API_KEY` | `AIzaSy...` | Google Gemini |
-| `GEMINI_MODEL` | `gemini-2.0-flash-lite` | |
-| `MATHPIX_APP_ID` | `your_org_xxx` | Mathpix 수식 특화 OCR |
-| `MATHPIX_APP_KEY` | `...` | |
+#### GROQ_API_KEY — Groq Vision API
+
+발급: **https://console.groq.com**
+```
+1. 회원가입 / 로그인
+2. 좌측 메뉴 "API Keys" → "Create API Key"
+3. 키 복사 (gsk_ 로 시작 — 재확인 불가, 즉시 저장)
+```
+```ini
+GROQ_API_KEY=gsk_xxxxxxxxxxxxxxxxxxxxxxxx
+GROQ_MODEL=meta-llama/llama-4-scout-17b-16e-instruct
+```
+- 무료 tier 제공 (분당 요청 수 Rate Limit 있음)
+- `llama-3.2-11b-vision-preview` 는 2026년 폐기 → `llama-4-scout-17b` 사용
+
+#### GEMINI_API_KEY — Google Gemini
+
+발급: **https://aistudio.google.com**
+```
+1. Google 계정으로 로그인
+2. 상단 "Get API key" → "Create API key"
+3. 키 복사 (AIzaSy 로 시작)
+```
+```ini
+GEMINI_API_KEY=AIzaSyxxxxxxxxxxxxxxxxxxxxxxx
+GEMINI_MODEL=gemini-2.0-flash-lite
+```
+- 무료 1,500 req/day
+- 사내망 SSL 오류 시 `SSL_VERIFY=false` 설정
+- `gemini-1.5-pro` 엔드포인트 404 오류 → `gemini-2.0-flash-lite` 사용
+
+#### MATHPIX_APP_ID / MATHPIX_APP_KEY — Mathpix OCR
+
+발급: **https://mathpix.com**
+```
+1. 회원가입 / 로그인
+2. 우측 상단 아바타 → "Account" → "API Keys" 탭
+3. "Create App" → App Name 입력 → APP_ID / APP_KEY 복사
+```
+```ini
+MATHPIX_APP_ID=your_org_abcdef
+MATHPIX_APP_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+- 무료 100 req/월, 초과 $0.004/req
+- 손글씨 정확도 88~93% (프로젝트 내 최상위)
+
+#### USE_LOCAL_MODEL — pix2tex 로컬 모델
+
+```ini
+USE_LOCAL_MODEL=true   # API 키 불필요, docker-compose build 시 가중치 포함
+```
+- 오프라인 동작, API 비용 없음
+- CPU 추론 약 180ms~2초
 
 ### 스토리지
 
