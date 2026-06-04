@@ -71,16 +71,75 @@ components/
 
 ## 환경변수 (.env)
 
+> 상세 가이드: [`.github/skills/env-configuration/SKILL.md`](.github/skills/env-configuration/SKILL.md)
+
+### 앱 기본
+
 | 변수 | 기본값 | 설명 |
 |------|--------|------|
-| `BACKEND_PORT` | 8000 | FastAPI 호스트 포트 |
-| `FRONTEND_PORT` | 5173 | Vite 호스트 포트 |
-| `USE_LOCAL_MODEL` | false | pix2tex 로컬 모델 사용 여부 |
-| `GROQ_API_KEY` | — | Groq API 키 (`gsk_`로 시작) |
-| `GEMINI_API_KEY` | — | Google Gemini API 키 |
-| `MATHPIX_APP_ID` | — | Mathpix App ID |
-| `MATHPIX_APP_KEY` | — | Mathpix App Key |
-| `SSL_VERIFY` | true | 외부 API SSL 검증 (사내망: false) |
+| `APP_ENV` | `development` | `development` \| `staging` \| `production` |
+| `DEBUG` | `false` | `true` → Swagger(/docs) 노출 |
+| `SSL_VERIFY` | `true` | 사내망 Somansa DLP 우회 시 `false` |
+
+### 포트
+
+| 변수 | 기본값 | 설명 |
+|------|--------|------|
+| `BACKEND_PORT` | `8000` | FastAPI 호스트 포트 (`docker-compose ${BACKEND_PORT:-8000}`) |
+| `FRONTEND_PORT` | `5173` | Vite dev server 호스트 포트 |
+
+선택적 HTTPS (주석 처리):
+```ini
+# HTTPS_PORT=8443
+# SSL_CERT_PATH=./certs/server.crt
+# SSL_KEY_PATH=./certs/server.key
+```
+
+### JWT
+
+| 변수 | 기본값 | 설명 |
+|------|--------|------|
+| `JWT_SECRET_KEY` | `change-me-...` | 운영 시 반드시 강력한 랜덤값 교체 |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | `15` | Access Token 유효기간(분) |
+| `REFRESH_TOKEN_EXPIRE_DAYS` | `30` | Refresh Token 유효기간(일) |
+
+### 관리자 계정 (선택)
+
+| 변수 | 설명 |
+|------|------|
+| `ADMIN_EMAIL` | 서버 시작 시 자동 생성. 비워두면 생략 |
+| `ADMIN_PASSWORD` | 8자 이상, 영문+숫자+특수문자 |
+
+### AI 인식기 (우선순위 순)
+
+| 변수 | 예시 | 설명 |
+|------|------|------|
+| `USE_LOCAL_MODEL` | `false` | `true` → pix2tex 로컬 CROHME Transformer |
+| `GROQ_API_KEY` | `gsk_...` | Groq Vision API (`gsk_`로 시작) |
+| `GROQ_MODEL` | `meta-llama/llama-4-scout-17b-16e-instruct` | |
+| `GEMINI_API_KEY` | `AIzaSy...` | Google Gemini |
+| `GEMINI_MODEL` | `gemini-2.0-flash-lite` | |
+| `MATHPIX_APP_ID` | `your_org_xxx` | Mathpix 수식 특화 OCR |
+| `MATHPIX_APP_KEY` | `...` | |
+
+### 스토리지
+
+| 변수 | 기본값 | 설명 |
+|------|--------|------|
+| `STORAGE_BACKEND` | `local` | `local` \| `s3` \| `minio` |
+| `LOCAL_STORAGE_PATH` | `/tmp/h2k_storage` | 로컬 저장 경로 |
+| `AWS_ACCESS_KEY_ID` | `` | S3 사용 시 |
+| `AWS_SECRET_ACCESS_KEY` | `` | S3 사용 시 |
+| `S3_BUCKET_NAME` | `handwrite2katex` | |
+| `S3_REGION` | `ap-northeast-2` | |
+| `MINIO_ENDPOINT` | `http://localhost:9000` | |
+
+### .env 수정 규칙
+
+- `.env` 항목 추가 시 → `.env.example`에도 동기화 (값 비움)
+- `.env`는 git 커밋 금지 (`.gitignore` 포함)
+- 변경 후 반드시 `docker-compose up -d --force-recreate backend`
+- 선택적 기능은 주석(`#`)으로만 추가, 활성화하지 않음
 
 ---
 
